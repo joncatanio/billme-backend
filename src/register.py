@@ -16,6 +16,7 @@ def register():
    response = {}
    hashedpw = bcrypt.hashpw(request.form['password'].encode('utf-8'), bcrypt.gensalt())
    # TODO change this to a valid image.
+   # get image from request.files as part of multiformdata.
    imgPath = "./some/path/here"
 
    try:

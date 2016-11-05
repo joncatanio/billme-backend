@@ -54,10 +54,6 @@ def updateAccountInfo():
          response['message'] = "Invalid/expired token."
          return json.dumps(response), 403
 
-      req = request.get_json(True, True, False)
-      if req == None:
-         return json.dumps(response), 500
-
       cur.execute("""
          SELECT user FROM Tokens WHERE token = %s
          """, [request.headers['Authorization']])
@@ -65,6 +61,7 @@ def updateAccountInfo():
       userId = user[0]
 
       # TODO Change image here but keep the same path!
+      # Get it from request.files multiform data.
       cur.execute("""
          UPDATE Users
          SET
@@ -72,7 +69,8 @@ def updateAccountInfo():
             email = %s,
             name = %s
          WHERE id = %s
-         """, [req['username'], req['email'], req['name'], userId])
+         """, [request.form['username'], request.form['email'],
+               request.form['name'], userId])
       db.commit()
 
    except IntegrityError:
