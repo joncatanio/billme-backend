@@ -28,7 +28,8 @@ def getUserBills(current):
             totalAmt,
             U.username,
             U.name,
-            dueDate
+            dueDate,
+            G.name
          FROM
             Tokens AS T
             INNER JOIN UserBills AS UB ON T.user = UB.userId
@@ -57,6 +58,7 @@ def getUserBills(current):
       obj['ownerUsername'] = row[4]
       obj['ownerName'] = row[5]
       obj['dueDate'] = row[6].isoformat()
+      obj['groupName'] = row[7]
 
       try:
          cur.execute("""

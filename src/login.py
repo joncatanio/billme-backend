@@ -21,7 +21,7 @@ def login():
       hashedpw = getPassword(request.form['username'])
       if hashedpw is None:
          response['message'] = 'Invalid username.'
-         return json.dumps(response), 401 
+         return json.dumps(response), 403
       hashedpw = hashedpw.encode('utf-8')
 
       # TODO verify this, and make sure addToken() doesn't fail.
@@ -34,7 +34,7 @@ def login():
          data['token'] = token
       else:
          response['message'] = 'Invalid password.'
-         return json.dumps(response), 401
+         return json.dumps(response), 403
    except IntegrityError:
       response['message'] = 'Duplicate token.'
       return json.dumps(), 500
