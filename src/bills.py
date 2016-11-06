@@ -40,6 +40,8 @@ def getUserBills(current):
             T.token = %s
             AND B.deleted <> 1
             AND B.complete <> %s
+         ORDER BY
+            dueDate ASC
          """, [request.headers['Authorization'], str(current)])
    except MySQLError:
       response['message'] = 'Internal Server Error'
