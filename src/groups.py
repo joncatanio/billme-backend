@@ -31,7 +31,8 @@ def getUserGroups():
             INNER JOIN Groups AS G ON GB.groupId = G.id
          WHERE
             token = %s
-         """, [request.headers['Authorization']])
+            AND G.deleted <> 1
+      """, [request.headers['Authorization']])
 
       rows = cur.fetchall()
       if not rows:
@@ -39,6 +40,55 @@ def getUserGroups():
 
       for row in rows:
          obj = {}
+         obj['groupId'] = row[0]
+         obj['groupName'] = row[1]
+         obj['groupImg'] = row[2]
+
+         cur.execute("""
+            SELECT SUM(totalAmt)
+            FROM Bills
+            WHERE groupId = %s
+            """, [obj['groupId']])
+         col = cur.fetchone()
+         obj['amtOwedAsGroup'] = str(col[0])
+
+         data.append(obj)
+   except MySQLError:
+      response['message'] = 'Internal Server Error'
+      return json.dumps(response), 500
+
+   return json.dumps(data), 200
+
+@groups_api.route("/group/<int:groupId>/")
+def getUserGroup(groupId):
+   obj = {}
+   response = {}
+
+   try:
+      if validateToken(request.headers['Authorization']) == False:
+         response['message'] = "Invalid/expired token."
+         return json.dumps(response), 403
+
+      cur.execute("""
+         SELECT
+            G.id,
+            G.name,
+            G.img
+         FROM
+            Tokens AS T
+            INNER JOIN GroupMembers AS GB ON GB.userId = T.user
+            INNER JOIN Groups AS G ON GB.groupId = G.id
+         WHERE
+            token = %s
+            AND G.id = %s
+            AND G.deleted <> 1
+         """, [request.headers['Authorization'], groupId])
+
+      rows = cur.fetchall()
+      if not rows:
+         return json.dumps(response), 204
+
+      for row in rows:
          obj['groupId'] = row[0]
          obj['groupName'] = row[1]
          obj['groupImg'] = row[2]
@@ -77,13 +127,11 @@ def getUserGroups():
 
          obj['members'] = members
 
-         data.append(obj)
-
    except MySQLError:
       response['message'] = 'Internal Server Error'
       return json.dumps(response), 500
 
-   return json.dumps(data), 200
+   return json.dumps(obj), 200
 
 @groups_api.route('/groups/add/', methods = ['POST'])
 def addGroup():
