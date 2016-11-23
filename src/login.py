@@ -32,9 +32,22 @@ def login():
          db.commit()
 
          data['token'] = token
+
+         # Get the userId to return with token.
+         cur.execute("""
+            SELECT
+               U.id
+            FROM
+               Users AS U
+               INNER JOIN Tokens AS T ON U.id = T.user
+            WHERE
+               T.token = %s""", [token])
+         row = cur.fetchone()
+         data['userId'] = row[0]
       else:
          response['message'] = 'Invalid password.'
          return json.dumps(response), 403
+
    except IntegrityError:
       response['message'] = 'Duplicate token.'
       return json.dumps(), 500

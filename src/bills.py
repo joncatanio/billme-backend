@@ -103,6 +103,7 @@ def getBill(billId):
             B.complete,
             U.name,
             U.username,
+            U.id,
             G.name
          FROM
             Tokens AS T
@@ -128,7 +129,8 @@ def getBill(billId):
          data['complete'] = row[3]
          data['ownerName'] = row[4]
          data['ownerUsername'] = row[5]
-         data['groupName'] = row[6]
+         data['ownerId'] = row[6]
+         data['groupName'] = row[7]
 
          # Add each individual payer and information about them
          payers = []
@@ -157,8 +159,13 @@ def getBill(billId):
             uObj['username'] = user[1]
             uObj['email'] = user[2]
             uObj['name'] = user[3]
-            uObj['profilePic'] = user[4]
+            img = open(user[4], 'r').read()
+            uObj['profilePic'] = img.encode('base64')
             uObj['paid'] = user[5]
+            if data['ownerId'] == uObj['userId']:
+               uObj['owner'] = 1
+            else:
+               uObj['owner'] = 0
             payers.append(uObj)
 
          data['payers'] = payers
@@ -233,4 +240,4 @@ def payBill(billId):
    except MySQLError:
       response['message'] = 'Internal Server Error'
       return json.dumps(response), 500
-   return json.dumps({'success': True}), 200
+   return json.dumps({}), 200

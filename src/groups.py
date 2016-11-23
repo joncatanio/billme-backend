@@ -42,7 +42,8 @@ def getUserGroups():
          obj = {}
          obj['groupId'] = row[0]
          obj['groupName'] = row[1]
-         obj['groupImg'] = row[2]
+         img = open(row[2], 'r').read()
+         obj['groupImg'] = img.encode('base64')
 
          cur.execute("""
             SELECT SUM(totalAmt)
@@ -91,7 +92,8 @@ def getUserGroup(groupId):
       for row in rows:
          obj['groupId'] = row[0]
          obj['groupName'] = row[1]
-         obj['groupImg'] = row[2]
+         img = open(row[2], 'r').read()
+         obj['groupImg'] = img.encode('base64')
 
          cur.execute("""
             SELECT SUM(totalAmt)
@@ -121,7 +123,10 @@ def getUserGroup(groupId):
             mObj['userId'] = mem[0]
             mObj['username'] = mem[1]
             mObj['name'] = mem[2]
-            mObj['profilePic'] = mem[3]
+
+            mImg = open(mem[3], 'r').read()
+            mObj['profilePic'] = mImg.encode('base64')
+
             mObj['email'] = mem[4]
             members.append(mObj)
 
@@ -154,7 +159,7 @@ def addGroup():
       userId = user[0]
 
       # TODO remove this when we figure out images.
-      imageTemp = "./path/to/stored/img"
+      imageTemp = "../img/group/default-group-img.png"
 
       cur.execute("""
          INSERT INTO Groups VALUES

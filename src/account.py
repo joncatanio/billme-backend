@@ -22,7 +22,7 @@ def getAccountInfo():
 
       cur.execute("""
          SELECT
-            id, username, email, name
+            id, username, email, name, profilePic
          FROM
             Tokens AS T
             INNER JOIN Users AS U ON T.user = U.id
@@ -38,6 +38,9 @@ def getAccountInfo():
       data['username'] = row[1]
       data['email'] = row[2]
       data['name'] = row[3]
+
+      img = open(row[4], 'r').read()
+      data['profilePic'] = img.encode('base64')
 
    except MySQLError:
       response['message'] = 'Internal Server Error'
