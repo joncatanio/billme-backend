@@ -6,6 +6,8 @@ from billme_db import db, cur
 from _mysql_exceptions import MySQLError, IntegrityError
 from user_tokens import validateToken
 import json
+import base64
+import datetime
 from flask import Blueprint, request
 
 groups_api = Blueprint('groups_api', __name__)
@@ -159,12 +161,17 @@ def addGroup():
       userId = user[0]
 
       # TODO remove this when we figure out images.
-      imageTemp = "../img/group/default-group-img.png"
+      imgPath = "../img/group/default-group-img.png"
+      if req['groupImg'] != '':
+         imgPath = '../img/group/' + str(datetime.datetime.now().isoformat())
+         f = open(imgPath, 'w')
+         f.write(base64.b64decode(req['groupImg']))
+         f.close()
 
       cur.execute("""
          INSERT INTO Groups VALUES
             (NULL, %s, NOW(), %s, 0)
-         """, [req['groupName'], imageTemp])
+         """, [req['groupName'], imgPath])
       groupId = cur.lastrowid
 
       cur.execute("""
