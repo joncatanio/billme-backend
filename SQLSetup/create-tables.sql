@@ -30,14 +30,16 @@ CREATE TABLE Bills (
 );
 
 CREATE TABLE UserBills (
-   userId INT UNSIGNED REFERENCES Users(id),
-   billId INT UNSIGNED REFERENCES Bills(id),
-   paid   BOOLEAN DEFAULT FALSE
+   userId  INT UNSIGNED REFERENCES Users(id),
+   billId  INT UNSIGNED REFERENCES Bills(id),
+   paid    BOOLEAN DEFAULT FALSE,
+   pending BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE GroupMembers (
    userId  INT UNSIGNED REFERENCES Users(id),
-   groupId INT UNSIGNED REFERENCES Groups(id)
+   groupId INT UNSIGNED REFERENCES Groups(id),
+   pending BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE Tokens (

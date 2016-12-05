@@ -24,6 +24,7 @@ def getUserBills(current):
          SELECT
             billId,
             paid,
+            pending,
             B.name,
             totalAmt,
             U.username,
@@ -55,12 +56,13 @@ def getUserBills(current):
       obj = {}
       obj['billId'] = row[0]
       obj['paid'] = row[1]
-      obj['billName'] = row[2]
-      obj['totalAmt'] = str(row[3])
-      obj['ownerUsername'] = row[4]
-      obj['ownerName'] = row[5]
-      obj['dueDate'] = row[6].isoformat()
-      obj['groupName'] = row[7]
+      obj['pending'] = row[2]
+      obj['billName'] = row[3]
+      obj['totalAmt'] = str(row[4])
+      obj['ownerUsername'] = row[5]
+      obj['ownerName'] = row[6]
+      obj['dueDate'] = row[7].isoformat()
+      obj['groupName'] = row[8]
 
       try:
          cur.execute("""
@@ -141,7 +143,8 @@ def getBill(billId):
                email,
                name,
                profilePic,
-               paid
+               paid,
+               pending
             FROM
                UserBills AS UB
                INNER JOIN Users AS U ON UB.userId = U.id
@@ -162,6 +165,7 @@ def getBill(billId):
             img = open(user[4], 'r').read()
             uObj['profilePic'] = img.encode('base64')
             uObj['paid'] = user[5]
+            uObj['pending'] = user[6]
             if data['ownerId'] == uObj['userId']:
                uObj['owner'] = 1
             else:
@@ -203,11 +207,11 @@ def addBill():
 
       payers = []
       for payer in req['includedMembers']:
-         payers.append((payer, billId, 0))
+         payers.append((payer, billId, 0, 0))
 
       cur.executemany("""
-         INSERT INTO UserBills (userId, billId, paid)
-         VALUES (%s, %s, %s)""", payers)
+         INSERT INTO UserBills (userId, billId, paid, pending)
+         VALUES (%s, %s, %s, %s)""", payers)
       db.commit()
 
    except MySQLError:
@@ -226,15 +230,95 @@ def payBill(billId):
          response['message'] = "Invalid/expired token."
          return json.dumps(response), 403
 
+      # Check if it is the bill owner who is paying.
       cur.execute("""
-         UPDATE UserBills
-         SET paid = 1
+         SELECT (
+            SELECT id
+            FROM
+               Users AS U
+               INNER JOIN Tokens AS T ON T.user = U.id
+            WHERE
+               token = %s
+         ) = (
+            SELECT owner
+            FROM Bills
+            WHERE id = %s
+         )
+         """, [request.headers['Authorization'], billId])
+      row = cur.fetchone()
+      if row[0] == 0:
+         cur.execute("""
+            UPDATE UserBills
+            SET pending = 1
+            WHERE
+               billId = %s
+               AND userId = (
+                  SELECT user FROM Tokens WHERE token = %s
+               )
+            """, [billId, request.headers['Authorization']])
+         response['status'] = 'Pending'
+      else:
+         cur.execute("""
+            UPDATE UserBills
+            SET paid = 1
+            WHERE
+               billId = %s
+               AND userId = (
+                  SELECT user FROM Tokens WHERE token = %s
+               )
+            """, [billId, request.headers['Authorization']])
+         response['status'] = 'Paid'
+
+      db.commit()
+
+   except MySQLError:
+      response['message'] = 'Internal Server Error'
+      db.rollback()
+      return json.dumps(response), 500
+   return json.dumps(response), 200
+
+@bills_api.route('/bills/accept/', methods = ['POST'])
+def acceptPayment():
+   response = {}
+
+   if validateToken(request.headers['Authorization']) == False:
+      response['message'] = "Invalid/expired token."
+      return json.dumps(response), 403
+
+   req = request.get_json(True, True, False)
+   if req == None:
+      return json.dumps({}), 400
+
+   try:
+      # Validate the owner of the bill
+      cur.execute("""
+         SELECT (
+            SELECT id
+            FROM
+               Users AS U
+               INNER JOIN Tokens AS T ON T.user = U.id
+            WHERE
+               token = %s
+         ) = (
+            SELECT owner
+            FROM Bills
+            WHERE id = %s
+         )
+         """, [request.headers['Authorization'], req['billId']])
+      row = cur.fetchone()
+      if row[0] == 0:
+         response['message'] = "Not permitted to accept bill"
+         return json.dumps(response), 403
+
+      # Set paid bit for the user.
+      cur.execute("""
+         UPDATE UserBills SET
+            paid = 1,
+            pending = 0
          WHERE
             billId = %s
-            AND userId = (
-               SELECT user FROM Tokens WHERE token = %s
-            )
-         """, [billId, request.headers['Authorization']])
+            AND userId = %s
+         """, [req['billId'], req['userId']])
       db.commit()
 
       cur.execute("""
@@ -245,7 +329,7 @@ def payBill(billId):
          WHERE
             billId = %s
             AND paid = 0
-         """, [billId])
+         """, [req['billId']])
 
       row = cur.fetchone()
       if row[0] == 0:
@@ -254,11 +338,10 @@ def payBill(billId):
             UPDATE Bills
             SET complete = 1
             WHERE id = %s
-            """, [billId])
+            """, [req['billId']])
          db.commit()
-
    except MySQLError:
       response['message'] = 'Internal Server Error'
       db.rollback()
       return json.dumps(response), 500
-   return json.dumps({}), 200
+   return json.dumps(response), 200

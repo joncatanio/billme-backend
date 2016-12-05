@@ -2,3 +2,7 @@
 **/*.swp
 **/__pycache__
 **/*.pyc
+**/img/group/**
+**/img/user/**
+!default-group-img.png
+!default-user-img.png
