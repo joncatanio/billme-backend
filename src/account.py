@@ -6,6 +6,8 @@ from billme_db import db, cur
 from _mysql_exceptions import MySQLError, IntegrityError
 from user_tokens import validateToken
 import json
+import base64
+import datetime
 from flask import Blueprint, request
 
 account_api = Blueprint('account_api', __name__)
@@ -57,23 +59,41 @@ def updateAccountInfo():
          response['message'] = "Invalid/expired token."
          return json.dumps(response), 403
 
+      req = request.get_json(True, True, False)
+      if req == None:
+         return json.dumps(response), 500
+
       cur.execute("""
          SELECT user FROM Tokens WHERE token = %s
          """, [request.headers['Authorization']])
       user = cur.fetchall()
       userId = user[0]
 
-      # TODO Change image here but keep the same path!
-      # Get it from request.files multiform data.
+      # Get the image path from the db if it is the default, replace the path.
+      cur.execute("""
+         SELECT profilePic
+         FROM Users
+         Where id = %s
+         """, [userId])
+      row = cur.fetchone()
+      imgPath = row[0]
+      if imgPath == '../img/user/default-user-img.png':
+         imgPath = '../img/user/' + str(datetime.datetime.now().isoformat())
+         
+      img = open(imgPath, 'w')
+      img.write(base64.b64decode(req['userImg']))
+      img.close()
+
       cur.execute("""
          UPDATE Users
          SET
             username = %s,
             email = %s,
-            name = %s
+            name = %s,
+            profilePic = %s
          WHERE id = %s
-         """, [request.form['username'], request.form['email'],
-               request.form['name'], userId])
+         """, [req['username'], req['email'],
+               req['name'], imgPath, userId])
       db.commit()
 
    except IntegrityError:
