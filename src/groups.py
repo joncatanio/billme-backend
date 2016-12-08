@@ -234,13 +234,29 @@ def addMemberToGroup():
          return json.dumps(response), 204
       userId = row[0]
 
+      # check if user is already in group
       cur.execute("""
-         INSERT INTO GroupMembers VALUES
-            (%s, %s)
+         SELECT COUNT(*)
+         FROM GroupMembers
+         WHERE
+            userId = %s
+            AND groupId = %s
          """, [userId, req['groupId']])
-      db.commit()
+
+      row = cur.fetchone()
+      if row == None:
+         return json.dumps(response), 500
+      if row[0] == 0:
+         cur.execute("""
+            INSERT INTO GroupMembers VALUES
+               (%s, %s, 0)
+            """, [userId, req['groupId']])
+         db.commit()
+      else:
+         print('member already present in group');
    except MySQLError:
       response['message'] = 'Internal Server Error'
+      db.rollback()
       return json.dumps(response), 500
 
    response['success'] = True

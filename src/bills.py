@@ -87,6 +87,65 @@ def getBills():
 def getBillsHistory():
    return getUserBills(0)
 
+@bills_api.route('/bills/pending/')
+def getBillsPending():
+   response = {}
+   data = []
+
+   try:
+      if validateToken(request.headers['Authorization']) == False:
+         response['message'] = "Invalid/expired token."
+         return json.dumps(response), 403
+
+      cur.execute("""
+         SELECT
+            U.username,
+            U.email,
+            U.name,
+            U.id,
+            U.profilePic,
+            B.id,
+            B.name,
+            G.id,
+            G.name
+         FROM
+            UserBills AS UB
+            INNER JOIN Bills AS B ON B.id = UB.billId
+            INNER JOIN Users AS U ON U.id = UB.userId
+            INNER JOIN Groups AS G ON B.groupId = G.id
+         WHERE
+            B.owner = (
+               SELECT user
+               FROM Tokens
+               WHERE token = %s
+            ) AND
+            UB.pending = 1
+         """, [request.headers['Authorization']])
+
+      rows = cur.fetchall()
+      if not rows:
+         return json.dumps(response), 204
+
+      for row in rows:
+         obj = {}
+         obj['username'] = row[0]
+         obj['email'] = row[1]
+         obj['userFullname'] = row[2]
+         obj['userId'] = row[3]
+         img = open(row[4], 'r').read()
+         obj['profilePic'] = img.encode('base64')
+         obj['billId'] = row[5]
+         obj['billName'] = row[6]
+         obj['groupId'] = row[7]
+         obj['groupName'] = row[8]
+         data.append(obj)
+
+   except MySQLError:
+      response['message'] = 'Internal Server Error'
+      return json.dumps(response), 500
+
+   return json.dumps(data), 200
+
 @bills_api.route('/bill/<int:billId>/')
 def getBill(billId):
    data = {}
@@ -219,6 +278,66 @@ def addBill():
       return json.dumps(response), 500
 
    response['billId'] = billId
+   return json.dumps(response), 200
+
+@bills_api.route('/bills/delete/<int:billId>/')
+def deleteBill(billId):
+   response = {}
+
+   try:
+      if validateToken(request.headers['Authorization']) == False:
+         response['message'] = "Invalid/expired token."
+         return json.dumps(response), 403
+
+      # Check if bill exists and the owner is the requester
+      cur.execute("""
+         SELECT COUNT(*)
+         FROM Bills
+         WHERE
+            owner = (
+               SELECT user
+               FROM Tokens
+               WHERE token = %s
+            ) AND
+            id = %s
+            AND deleted <> 1
+            AND complete <> 1
+         """, [request.headers['Authorization'], billId])
+
+      row = cur.fetchone()
+      if row[0] == 0:
+         return json.dumps(response), 403
+
+      # Make sure there are no payments or pending payments
+      cur.execute("""
+         SELECT COUNT(*)
+         FROM
+            Bills AS B
+            INNER JOIN UserBills AS UB ON UB.billId = B.id
+         WHERE
+            B.id = %s
+            AND (
+               UB.paid = 1
+               OR UB.pending = 1
+            )
+         """, [billId])
+
+      row = cur.fetchone()
+      if row[0] > 0:
+         return json.dumps(response), 403
+
+      # If everything checks out delete the bill
+      cur.execute("""
+         UPDATE Bills SET
+            deleted = 1
+         WHERE id = %s
+         """, [billId])
+      db.commit()
+
+   except MySQLError:
+      db.rollback()
+      response['message'] = 'Internal Server Error'
+      return json.dumps(response), 500
    return json.dumps(response), 200
 
 @bills_api.route('/bills/pay/<int:billId>/')
