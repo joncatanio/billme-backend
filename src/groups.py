@@ -176,7 +176,7 @@ def addGroup():
 
       cur.execute("""
          INSERT INTO GroupMembers VALUES
-            (%s, %s)
+            (%s, %s, 0)
          """, [userId, groupId])
       db.commit()
    except MySQLError:
