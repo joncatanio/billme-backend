@@ -396,7 +396,7 @@ def payBill(billId):
             WHERE
                billId = %s
                AND paid = 0
-            """, [req['billId']])
+            """, [billId])
 
          row = cur.fetchone()
          if row[0] == 0:
@@ -405,7 +405,7 @@ def payBill(billId):
                UPDATE Bills
                SET complete = 1
                WHERE id = %s
-               """, [req['billId']])
+               """, [billId])
 
       db.commit()
    except MySQLError:
