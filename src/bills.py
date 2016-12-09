@@ -388,8 +388,26 @@ def payBill(billId):
             """, [billId, request.headers['Authorization']])
          response['status'] = 'Paid'
 
-      db.commit()
+         cur.execute("""
+            SELECT
+               COUNT(*)
+            FROM
+               UserBills
+            WHERE
+               billId = %s
+               AND paid = 0
+            """, [req['billId']])
 
+         row = cur.fetchone()
+         if row[0] == 0:
+            # The bill is complete
+            cur.execute("""
+               UPDATE Bills
+               SET complete = 1
+               WHERE id = %s
+               """, [req['billId']])
+
+      db.commit()
    except MySQLError:
       response['message'] = 'Internal Server Error'
       db.rollback()
